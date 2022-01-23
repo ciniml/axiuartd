@@ -1,0 +1,15 @@
+[package]
+name = "axiuartd"
+version = "0.1.0"
+authors = ["Kenta Ida <fuga@fugafuga.org>"]
+edition = "2021"
+license = "BSL-1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serialport = "4.0"
+getopts = "0.2"
+memmap = "0.7"
+volatile = "0.4"
+page_size = "0.4"
