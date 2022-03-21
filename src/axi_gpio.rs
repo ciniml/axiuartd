@@ -24,9 +24,13 @@ pub enum AxiGpioChannel {
 }
 
 impl AxiGpio {
-    pub fn new(file: &File, offset: usize) -> std::io::Result<Self> {
-        let mut mmap = unsafe { MmapOptions::new().offset((offset + 0x1000) as u64).len(page_size::get()).map_mut(&file)? };
-        let regs = AxiGpioRegs::new(&mut mmap);
+    pub fn new(file: &File, offset: usize, map_size: Option<usize>) -> std::io::Result<Self> {
+        let (mmap_offset, mmap_length, reg_offset) = match map_size {
+            Some(map_size) => (0, map_size, offset),   // Some devices like XRT DRI user register requires mmapped with a specific BAR size, thus we have to mmap with `map_size` length if map_size is specified with zero offset.
+            None => (offset, page_size::get(), 0),
+        };
+        let mut mmap = unsafe { MmapOptions::new().offset((mmap_offset) as u64).len(mmap_length).map_mut(&file)? };
+        let regs = AxiGpioRegs::new(&mut mmap, reg_offset);
         Ok(Self {
             mmap,
             regs,
@@ -86,13 +90,13 @@ unsafe fn make_volatile_readwrite(mmap: &mut MmapMut, offset: usize) -> Volatile
 
 
 impl AxiGpioRegs {
-    fn new(mmap: &mut MmapMut) -> Self {
+    fn new(mmap: &mut MmapMut, reg_offset: usize) -> Self {
         unsafe {
             Self {
-                data: make_volatile_readwrite(mmap, 0x0),
-                tri: make_volatile_readwrite(mmap, 0x4),
-                data2: make_volatile_readwrite(mmap, 0x8),
-                tri2: make_volatile_readwrite(mmap, 0xc),
+                data: make_volatile_readwrite(mmap, reg_offset + 0x0),
+                tri: make_volatile_readwrite(mmap, reg_offset + 0x4),
+                data2: make_volatile_readwrite(mmap, reg_offset + 0x8),
+                tri2: make_volatile_readwrite(mmap, reg_offset + 0xc),
             }
         }
     }

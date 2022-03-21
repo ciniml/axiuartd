@@ -33,9 +33,13 @@ pub struct AxiUart16550<S: State> {
 }
 
 impl AxiUart16550<Uninitialized> {
-    pub fn new(file: &File, offset: usize) -> std::io::Result<Self> {
-        let mut mmap = unsafe { MmapOptions::new().offset((offset + 0x1000) as u64).len(page_size::get()).map_mut(&file)? };
-        let regs = AxiUart16550Regs::new(&mut mmap);
+    pub fn new(file: &File, offset: usize, map_size: Option<usize>) -> std::io::Result<Self> {
+        let (mmap_offset, mmap_length, reg_offset) = match map_size {
+            Some(map_size) => (0, map_size, offset),   // Some devices like XRT DRI user register requires mmapped with a specific BAR size, thus we have to mmap with `map_size` length if map_size is specified with zero offset.
+            None => (offset + 0x1000, page_size::get(), 0),
+        };
+        let mut mmap = unsafe { MmapOptions::new().offset(mmap_offset as u64).len(mmap_length).map_mut(&file)? };
+        let regs = AxiUart16550Regs::new(&mut mmap, reg_offset);
         Ok(Self {
             mmap,
             regs,
@@ -113,19 +117,19 @@ unsafe fn make_volatile_readwrite(mmap: &mut MmapMut, offset: usize) -> Volatile
 
 
 impl AxiUart16550Regs {
-    fn new(mmap: &mut MmapMut) -> Self {
+    fn new(mmap: &mut MmapMut, offset: usize) -> Self {
         unsafe {
             Self {
-                rbr: make_volatile_readonly(mmap, 0x0),
-                thr: make_volatile_writeonly(mmap, 0x0),
-                fcr: make_volatile_readwrite(mmap, 0x8),
-                lcr: make_volatile_readwrite(mmap, 0xc),
-                mcr: make_volatile_readwrite(mmap, 0x10),
-                lsr: make_volatile_readwrite(mmap, 0x14),
-                msr: make_volatile_readwrite(mmap, 0x18),
-                scr: make_volatile_readwrite(mmap, 0x1c),
-                dll: make_volatile_readwrite(mmap, 0x0),
-                dlm: make_volatile_readwrite(mmap, 0x4),
+                rbr: make_volatile_readonly(mmap, offset + 0x0),
+                thr: make_volatile_writeonly(mmap,offset + 0x0),
+                fcr: make_volatile_readwrite(mmap,offset + 0x8),
+                lcr: make_volatile_readwrite(mmap,offset + 0xc),
+                mcr: make_volatile_readwrite(mmap,offset + 0x10),
+                lsr: make_volatile_readwrite(mmap,offset + 0x14),
+                msr: make_volatile_readwrite(mmap,offset + 0x18),
+                scr: make_volatile_readwrite(mmap,offset + 0x1c),
+                dll: make_volatile_readwrite(mmap,offset + 0x0),
+                dlm: make_volatile_readwrite(mmap,offset + 0x4),
             }
         }
     }
